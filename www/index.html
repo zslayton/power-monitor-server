@@ -1,0 +1,133 @@
+<meta charset="UTF-8">
+<html>
+  <head>
+    <style>
+     body {
+       text-align: center;
+     }
+
+     #welcome {
+       background-color: DeepSkyBlue;
+       margin-top: 10px;
+       padding: 10px;
+       border-radius: 5px;
+     }
+
+     #status_table {
+       margin: auto;
+       min-width: 600px;
+       padding-bottom: 32px;
+     }
+
+     #status_table tr td {
+       padding: 20px;
+       font-size: xx-large;
+       text-align: center;
+     }
+
+     #status_table tr td.available {
+      color: green;
+     }
+     
+     #status_table tr td.in_use {
+      color: mediumvioletred;
+     }
+    </style>
+    <script>
+      let powerApiUrl = "/power";
+      
+      // Difference between min and max ratings to be considered "on"
+      let powerThresholds = {
+	a0: 900, // Aug 18 
+	a1: 900, // Aug 18
+	a2: 900, // Aug 13
+	a3: 900  // Aug 13
+      };
+
+      let millisecondsBetweenUpdates = 5000;
+
+      let updateDisplay = function(readings) {
+        for (let channelNumber = 0; channelNumber < 4; channelNumber++) {
+          let channel = "a" + channelNumber;
+	  let reading = readings[channel];
+	  let rangeHistory = readings.history[channel].readings.map(r => r.max - r.min);
+	  let readingRange = Math.max.apply(null, rangeHistory);
+	  //let readingRange = reading.max - reading.min;
+
+	  let channelHistory = readings.history[channel];
+	  let dayStats = channelHistory.yesterday_stats || channelHistory.today_stats;
+          
+	  //let powerThreshold = powerThresholds[channel];
+	  //let bump = (dayStats.max - dayStats.min) * .10;
+          let powerThreshold = dayStats.mean * 1.05;
+
+	  console.log("Channel", channel, "threshold:", powerThreshold, ", range:", readingRange, "dayStats:", dayStats, ", history:", rangeHistory);
+
+	  let statusNode = document.querySelector("#status ." + channel);
+
+	  if (reading.max < -10 || reading.min > 10) {  
+	    statusNode.innerHTML = "Error - status unknown";
+            statusNode.classList.remove("available", "in_use");
+            statusNode.classList.add("error");
+	  } else if (readingRange >= powerThreshold) {
+	    statusNode.innerHTML = "In use";
+            statusNode.classList.remove("available", "error");
+            statusNode.classList.add("in_use");
+	  } else {
+	    statusNode.innerHTML = "Available";
+            statusNode.classList.add("available");
+            statusNode.classList.remove("in_use", "error");
+	  }
+
+	  let meter = document.querySelector("#meter ." + channel);
+	  meter.setAttribute('min', dayStats.min);
+	  meter.setAttribute('max', dayStats.max);
+	  meter.setAttribute('value', readingRange);
+
+	  document.querySelector("#last_updated").innerHTML = new Date().toString();
+	}
+      }
+
+      let fetchPowerReadings = function() {
+        fetch(powerApiUrl)
+        .then(response => response.json())
+	.then(function(readings) {
+	  console.log("Readings:", readings);
+	  updateDisplay(readings);
+	})
+	.catch(function(x, y, z) {
+	  console.error("Failed to fetch.", x, y, z);
+	});
+      };
+      fetchPowerReadings();
+      setInterval(fetchPowerReadings, millisecondsBetweenUpdates);
+    </script>
+  </head>
+  <body>
+    <div>&nbsp;</div>
+    <!-- <span id="welcome">Welcome! This site is still a work in progress. It will become more accurate and reliable in the near future.</span> -->
+    <div>Meters show current power draw compared to recent min/max.</div>
+    <div>"In use" vs "Available" is a best guess based on this information.</div>
+    <div>Sometimes a machine that's in use will draw little to no power.</div>
+    <table id="status_table">
+	      <td class="a0">Washer 1</td>
+	      <td class="a1">Washer 2</td>
+	      <td class="a2">Washer 3</td>
+	      <td class="a3">Washer 4</td>
+      </tr>
+      <tr id="status">
+	      <td class="a0">Loading status</td>
+	      <td class="a1">Loading status</td>
+	      <td class="a2">Loading status</td>
+	      <td class="a3">Loading status</td>
+      </tr>
+      <tr id="meter">
+	      <td><meter class="a0" min="0" max="1000" value="0"></td>
+	      <td><meter class="a1" min="0" max="1000" value="0"></td>
+	      <td><meter class="a2" min="0" max="1000" value="0"></td>
+	      <td><meter class="a3" min="0" max="1000" value="0"></td>
+      </tr>
+    </table>
+    Last updated at <span id="last_updated">...</span>
+  </body>
+</html>

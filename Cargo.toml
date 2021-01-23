@@ -1,0 +1,12 @@
+[package]
+name = "power-monitor-httpd"
+version = "0.1.0"
+authors = ["Zack Slayton <zslayton@amazon.com>"]
+edition = "2018"
+
+[dependencies]
+actix-web = "1.0"
+actix-files="0.1"
+chrono= { version = "0.4", features = ["serde"] }
+serde = "1.0"
+env_logger = "0.6"
