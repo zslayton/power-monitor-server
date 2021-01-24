@@ -76,8 +76,8 @@ impl DayStats {
         DayStats {
             num_readings: 0,
             mean: 0f64,
-            min: std::i16::MAX,
-            max: std::i16::MIN,
+            min: 200i16,
+            max: 1600i16,
             day,
         }
     }
@@ -173,24 +173,24 @@ impl PowerHistory {
             let _ = channel_history.readings.pop_front();
             channel_history.readings.push_back(*reading);
 
-            if channel_history.today_stats.day != today {
-                // It's a new day. Move today to yesterday, then start a new record for today.
-                channel_history.yesterday_stats = Some(channel_history.today_stats);
-                channel_history.today_stats = DayStats {
-                    num_readings: 0,
-                    mean: 0f64,
-                    min: reading.difference(),
-                    max: reading.difference(),
-                    day: today,
-                }
-            } else {
-                let range = reading.difference();
-                let stats = &mut channel_history.today_stats;
-                stats.mean = ((stats.num_readings as f64 * stats.mean) + (range as f64))
-                    / (stats.num_readings + 1) as f64;
-                stats.num_readings += 1;
-                stats.max = max(stats.max, range);
-                stats.min = min(stats.min, range);
+            let range = reading.difference();
+            let stats = &mut channel_history.today_stats;
+            stats.mean = ((stats.num_readings as f64 * stats.mean) + (range as f64))
+                 / (stats.num_readings + 1) as f64;
+            stats.num_readings += 1;
+            stats.max = max(stats.max, range);
+            stats.min = min(stats.min, range);
+
+            if stats.day != today {
+                // It's a new day.
+                channel_history.yesterday_stats = Some(stats.clone());
+
+                // Originally, we would completely reset all stats. (mean=0, min=u16::MAX, max=u16::MIN)
+                // This wasn't very helpful as it wrecked the front end each time the day rolled over.
+                // Instead, we carry over the min, max, and mean and drop the num_readings to a low number
+                // so it can readjust as the day progresses.
+                stats.num_readings = 12 * 5; // Roughly 5 minutes' worth of readings
+                stats.day = today;
             }
         }
     }

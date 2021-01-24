@@ -35,56 +35,47 @@
     </style>
     <script>
       let powerApiUrl = "/power";
-      
-      // Difference between min and max ratings to be considered "on"
-      let powerThresholds = {
-	a0: 900, // Aug 18 
-	a1: 900, // Aug 18
-	a2: 900, // Aug 13
-	a3: 900  // Aug 13
-      };
 
       let millisecondsBetweenUpdates = 5000;
 
       let updateDisplay = function(readings) {
         for (let channelNumber = 0; channelNumber < 4; channelNumber++) {
           let channel = "a" + channelNumber;
-	  let reading = readings[channel];
-	  let rangeHistory = readings.history[channel].readings.map(r => r.max - r.min);
-	  let readingRange = Math.max.apply(null, rangeHistory);
-	  //let readingRange = reading.max - reading.min;
+          let reading = readings[channel];
+          let rangeHistory = readings.history[channel].readings.map(r => r.max - r.min);
+          let sortedHistory = [...rangeHistory].sort();
+          // The current reading is the second-highest in the sliding window.
+          // This allows the occasional one-off spike to occur without flipping the machine to 'in use'
+          let readingRange = sortedHistory[sortedHistory.length - 2];
 
-	  let channelHistory = readings.history[channel];
-	  let dayStats = channelHistory.yesterday_stats || channelHistory.today_stats;
-          
-	  //let powerThreshold = powerThresholds[channel];
-	  //let bump = (dayStats.max - dayStats.min) * .10;
+          let channelHistory = readings.history[channel];
+          let dayStats = channelHistory.today_stats;
           let powerThreshold = dayStats.mean * 1.05;
 
-	  console.log("Channel", channel, "threshold:", powerThreshold, ", range:", readingRange, "dayStats:", dayStats, ", history:", rangeHistory);
+          console.log("Channel", channel, "threshold:", powerThreshold, ", reading:", readingRange, "dayStats:", dayStats, ", history:", rangeHistory);
 
-	  let statusNode = document.querySelector("#status ." + channel);
+          let statusNode = document.querySelector("#status ." + channel);
 
-	  if (reading.max < -10 || reading.min > 10) {  
-	    statusNode.innerHTML = "Error - status unknown";
+          if (reading.max < -10 || reading.min > 10) {
+            statusNode.innerHTML = "Error - status unknown";
             statusNode.classList.remove("available", "in_use");
             statusNode.classList.add("error");
-	  } else if (readingRange >= powerThreshold) {
-	    statusNode.innerHTML = "In use";
+          } else if (readingRange >= powerThreshold) {
+            statusNode.innerHTML = "In use";
             statusNode.classList.remove("available", "error");
             statusNode.classList.add("in_use");
-	  } else {
-	    statusNode.innerHTML = "Available";
+          } else {
+            statusNode.innerHTML = "Available";
             statusNode.classList.add("available");
             statusNode.classList.remove("in_use", "error");
-	  }
+          }
 
-	  let meter = document.querySelector("#meter ." + channel);
-	  meter.setAttribute('min', dayStats.min);
-	  meter.setAttribute('max', dayStats.max);
-	  meter.setAttribute('value', readingRange);
+          let meter = document.querySelector("#meter ." + channel);
+          meter.setAttribute('min', dayStats.min);
+          meter.setAttribute('max', dayStats.max);
+          meter.setAttribute('value', readingRange);
 
-	  document.querySelector("#last_updated").innerHTML = new Date().toString();
+          document.querySelector("#last_updated").innerHTML = new Date().toString();
 	}
       }
 
